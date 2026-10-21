@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: #0d1015;
+  color: #e5e9f0;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  touch-action: none;
+}
+
+.lcd-font {
+  font-family: "Consolas", "Courier New", monospace;
+}
+
+/* Thin scrollbars for the dock */
+.dock-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.dock-scroll::-webkit-scrollbar-thumb {
+  background: #3b4352;
+  border-radius: 3px;
+}
