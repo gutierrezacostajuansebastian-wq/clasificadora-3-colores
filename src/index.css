@@ -3,12 +3,16 @@
 html,
 body,
 #root {
-  height: 100%;
+  height: 100dvh;
+  width: 100dvw;
   margin: 0;
+  padding: 0;
   background: #0d1015;
   color: #e5e9f0;
   font-family: "Inter", "Segoe UI", system-ui, sans-serif;
   overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 canvas {
@@ -22,7 +26,8 @@ canvas {
 
 /* Thin scrollbars for the dock */
 .dock-scroll::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
+  height: 5px;
 }
 .dock-scroll::-webkit-scrollbar-thumb {
   background: #3b4352;

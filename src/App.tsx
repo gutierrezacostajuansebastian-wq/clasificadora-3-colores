@@ -34,7 +34,7 @@ export default function App() {
   }, [pressStart, spawnRandomSequence])
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[#0d1015] select-none">
+    <div className="relative h-dvh w-dvw overflow-hidden bg-[#0d1015] select-none">
       <ControlDock />
 
       <Canvas
