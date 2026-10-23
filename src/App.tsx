@@ -5,24 +5,33 @@ import { Physics } from '@react-three/rapier'
 import { CameraRig } from './components/CameraRig'
 import { ControlDock } from './components/ControlDock'
 import { Conveyor } from './components/Conveyor'
+import { DualSteering } from './components/DualSteering'
 import { ElectricalCabinet } from './components/ElectricalCabinet'
-import { FourBarMechanism } from './components/FourBarMechanism'
 import { GuardsChutesBins } from './components/GuardsChutesBins'
-import { OpticalGantry } from './components/OpticalGantry'
+import { LiftBridge } from './components/LiftBridge'
 import { Pieces } from './components/Pieces'
+import { ShroudedStation } from './components/ShroudedStation'
 import { SimController } from './components/SimController'
+import { HOOD, HOOD2, LANE, LANE2 } from './sim/layout'
 import { useSim } from './sim/store'
 
 export default function App() {
+  const pressStart = useSim((s) => s.pressStart)
   const spawnRandomSequence = useSim((s) => s.spawnRandomSequence)
 
-  // Queue an initial demonstration sequence once the simulator boots
+  // Trigger automatic CNC-style homing sequence & queue a demo batch on boot
   useEffect(() => {
-    const t = setTimeout(() => {
-      spawnRandomSequence(6)
-    }, 900)
-    return () => clearTimeout(t)
-  }, [spawnRandomSequence])
+    const t1 = setTimeout(() => {
+      pressStart()
+    }, 450)
+    const t2 = setTimeout(() => {
+      spawnRandomSequence(7)
+    }, 950)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+    }
+  }, [pressStart, spawnRandomSequence])
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#0d1015] select-none">
@@ -31,7 +40,7 @@ export default function App() {
       <Canvas
         shadows
         dpr={[1, 2]}
-        camera={{ position: [1.65, 1.55, -0.35], fov: 42, near: 0.05, far: 40 }}
+        camera={{ position: [1.85, 1.62, 0.25], fov: 42, near: 0.05, far: 40 }}
       >
         <color attach="background" args={['#0f131a']} />
         <fog attach="fog" args={['#0f131a', 6, 16]} />
@@ -44,10 +53,10 @@ export default function App() {
           position={[2.6, 4.2, 1.8]}
           intensity={2.2}
           shadow-mapSize={[2048, 2048]}
-          shadow-camera-left={-2.5}
-          shadow-camera-right={2.5}
-          shadow-camera-top={2.5}
-          shadow-camera-bottom={-2.5}
+          shadow-camera-left={-2.8}
+          shadow-camera-right={2.8}
+          shadow-camera-top={2.8}
+          shadow-camera-bottom={-2.8}
           shadow-camera-near={0.5}
           shadow-camera-far={10}
           shadow-bias={-0.0004}
@@ -86,8 +95,10 @@ export default function App() {
             <SimController />
             <Conveyor />
             <GuardsChutesBins />
-            <OpticalGantry />
-            <FourBarMechanism />
+            <ShroudedStation kind="primary" z={HOOD.z} railX={LANE.x} />
+            <DualSteering />
+            <ShroudedStation kind="verify" z={HOOD2.z} railX={LANE2.x} />
+            <LiftBridge />
             <ElectricalCabinet />
             <Pieces />
           </Physics>

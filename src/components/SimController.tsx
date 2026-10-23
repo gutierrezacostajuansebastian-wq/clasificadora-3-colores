@@ -1,24 +1,25 @@
 import { useRef } from 'react'
 import { useBeforePhysicsStep } from '@react-three/rapier'
-import { deg } from '../sim/mechanism'
 import { runtime, useSim } from '../sim/store'
 
 export function SimController() {
   const uiTimer = useRef(0)
-  const prevDecision = useRef('-')
+  const prevPrimary = useRef('-')
+  const prevVerify = useRef('-')
+  const prevState = useRef(runtime.engine.state)
 
   useBeforePhysicsStep((world) => {
     const dt = world.timestep || 1 / 120
     const st = useSim.getState()
     const eng = runtime.engine
 
-    // Auto-dispatch queued random sequence pieces spaced by belt travel
+    // Auto-dispatch queued sequence pieces spaced by belt travel when machine is in RUN
     if (
       runtime.seqQueue.length > 0 &&
-      st.beltRun &&
       !st.estop &&
-      eng.mode === 'RUN' &&
-      eng.belt.offset - runtime.lastSpawnOffset >= 0.98
+      eng.state === 'RUN' &&
+      eng.belt.speed > 0.08 &&
+      eng.belt.offset - runtime.lastSpawnOffset >= 0.88
     ) {
       const next = runtime.seqQueue.shift()!
       runtime.lastSpawnOffset = eng.belt.offset
@@ -28,25 +29,43 @@ export function SimController() {
     const events = eng.step(
       dt,
       {
-        beltRun: st.beltRun,
-        beltSetpoint: st.beltSpeed,
         estop: st.estop,
+        btnUp: st.btnUp,
+        btnDown: st.btnDown,
       },
       runtime.bodies.values(),
     )
 
-    if (eng.lastDecision !== prevDecision.current && eng.lastDecision !== '-') {
-      prevDecision.current = eng.lastDecision
+    if (eng.state !== prevState.current) {
+      prevState.current = eng.state
+      st.pushLog(`[FSM] State -> ${eng.state}`)
+    }
+
+    if (eng.primary !== prevPrimary.current && eng.primary !== '-') {
+      prevPrimary.current = eng.primary
+      const [fR, fG, fB] = eng.tcsFreq
       st.pushLog(
-        `[S1/S2] isRed=${eng.isRed ? 1 : 0} isGreen=${eng.isGreen ? 1 : 0} -> ${eng.lastDecision}`,
+        `[TCS3200] R=${Math.round(fR)} G=${Math.round(fG)} B=${Math.round(fB)} Hz -> ${eng.primary}`,
+      )
+    }
+
+    if (eng.verifyVerdict !== prevVerify.current && eng.verifyVerdict !== '-') {
+      prevVerify.current = eng.verifyVerdict
+      st.pushLog(
+        `[VERIFY D3] Pin D3=${eng.verifyHigh ? 'HIGH' : 'LOW'} -> ${eng.verifyVerdict} (${
+          eng.verifyVerdict === 'GREEN' ? 'Bridge FLAT _' : 'Bridge LIFT 65°'
+        })`,
       )
     }
 
     const toRemove: number[] = []
     for (const ev of events) {
       if (ev.type === 'count') {
-        st.setCounts({ ...eng.counts })
-        st.pushLog(`[BIN] Piece #${ev.id} sorted -> ${ev.bin.toUpperCase()} BIN`)
+        st.pushLog(
+          `[BIN] Piece #${ev.id} -> ${
+            ev.bin === 'anomaly' ? 'NOVEDADES / ANOMALY' : ev.bin.toUpperCase()
+          } BIN`,
+        )
       } else if (ev.type === 'remove') {
         toRemove.push(ev.id)
       }
@@ -56,32 +75,9 @@ export function SimController() {
     }
 
     uiTimer.current += dt
-    if (uiTimer.current >= 0.07) {
+    if (uiTimer.current >= 0.065) {
       uiTimer.current = 0
-      st.setTelemetry({
-        s1: Math.round(eng.s1.analog),
-        s2: Math.round(eng.s2.analog),
-        led1: eng.s1.led,
-        led2: eng.s2.led,
-        isRed: eng.isRed,
-        isGreen: eng.isGreen,
-        target: eng.target,
-        lastDecision: eng.lastDecision,
-        mode: eng.mode,
-        queue: eng.queue.length,
-        pwmD5: eng.pwmConvD5,
-        pwmD6: eng.pwmConvD6,
-        pwmMech: eng.pwmMech,
-        mechDir: eng.mechDir,
-        hallRed: eng.hall.red,
-        hallBlue: eng.hall.blue,
-        hallCountRed: eng.hallCountRed,
-        hallCountBlue: eng.hallCountBlue,
-        encDeg: Number(eng.encDeg.toFixed(1)),
-        alphaDeg: Number(deg(eng.pose.alpha).toFixed(1)),
-        beltSpeed: Number(eng.belt.speed.toFixed(2)),
-        homed: eng.homed,
-      })
+      st.setTelemetry(eng.snapshot())
     }
   })
 

@@ -24,7 +24,32 @@ export const mats = {
   gearbox: new THREE.MeshStandardMaterial({ color: '#8d949c', metalness: 0.85, roughness: 0.35 }),
   safetyYellow: new THREE.MeshStandardMaterial({ color: '#f2c200', roughness: 0.6 }),
   anodOrange: new THREE.MeshStandardMaterial({ color: '#e4741a', metalness: 0.7, roughness: 0.38 }),
+  /** Opaque matte-black light shroud (zero specular so it does not reflect ambient light). */
+  matteBlack: new THREE.MeshStandardMaterial({ color: '#070708', metalness: 0, roughness: 1 }),
+  magnet: new THREE.MeshStandardMaterial({ color: '#8f9bb3', metalness: 1, roughness: 0.2 }),
+  pcbBlue: new THREE.MeshStandardMaterial({ color: '#0b4f9c', roughness: 0.4, metalness: 0.2 }),
+  pcbRed: new THREE.MeshStandardMaterial({ color: '#b91c1c', roughness: 0.4, metalness: 0.2 }),
+  pcbTeal: new THREE.MeshStandardMaterial({ color: '#00797f', roughness: 0.35, metalness: 0.2 }),
+  pcbBlack: new THREE.MeshStandardMaterial({ color: '#1d1f24', roughness: 0.4, metalness: 0.2 }),
+  ledWhite: new THREE.MeshStandardMaterial({
+    color: '#ffffff',
+    emissive: '#ffffff',
+    emissiveIntensity: 3.5,
+    toneMapped: false,
+  }),
 }
+
+/** Opaque hood material, switched to a see-through cutaway when X-ray is enabled. */
+export const hoodMaterial = (xray: boolean) =>
+  xray
+    ? new THREE.MeshStandardMaterial({
+        color: '#0b0b0d',
+        roughness: 1,
+        transparent: true,
+        opacity: 0.16,
+        depthWrite: false,
+      })
+    : mats.matteBlack
 
 export const ledMat = (color: string, on: boolean) =>
   new THREE.MeshStandardMaterial({

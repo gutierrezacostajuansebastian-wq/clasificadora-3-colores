@@ -1,5 +1,6 @@
 /**
- * Shared, framework-free geometry of the sorting line.
+ * Shared, framework-free geometry of the sorting line (v2: TCS3200 hood, dual parallel paddles,
+ * secondary verification hood, lift bridge + anomaly bin).
  * World axes: +Z = belt travel (infeed at -Z, discharge at +Z), X = lateral, Y = up (floor = 0).
  * All dimensions in metres.
  */
@@ -16,46 +17,70 @@ export const BELT = {
 
 export const GUARD = { x: 0.234, halfT: 0.006, h: 0.12 } as const
 
-/** Optical stations (S1 red, S2 green) spaced 0.15 m on the centre line. */
-export const SENSORS = {
-  s1z: -0.55,
-  s2z: -0.4,
-  gantryZ: -0.475,
-  beamR: 0.025,
-  headY: 0.93,
+/**
+ * Work-pieces are low "pucks / tiles" (28 mm tall) so that the TCS3200 lens can sit at its
+ * 37 mm focal height above the belt while the piece still passes underneath.
+ */
+export const PIECE = { size: 0.036, h: 0.028 } as const
+
+/** Primary station: TCS3200 colour sensor inside a matte-black light shroud. */
+export const HOOD = {
+  z: -0.55,
+  len: 0.22,
+  halfW: 0.1,
+  lensY: BELT.top + 0.037, // exactly 37 mm optical focal height
+  baffleY: BELT.top + 0.034, // low-profile entrance / exit curtains
+  topY: BELT.top + 0.13,
+  winHalfZ: 0.022,
+  winHalfX: 0.05,
 } as const
 
-/** Deflector paddle (4-bar coupler) geometry. */
+/** Secondary station: enclosed IR / colour verification sensor (HIGH only for GREEN). */
+export const HOOD2 = { ...HOOD, z: 1.12 } as const
+
+/** Dual parallel deflector paddles (Ackermann-style tie-rod / parallelogram linkage). */
 export const PADDLE = {
-  zc: 0.4, // neutral centre along Z
-  halfLen: 0.31,
-  halfT: 0.015,
-  noseLen: 0.07,
-  noseHalfW: 0.04,
-  bottom: BELT.top + 0.005, // 5 mm above the belt
-  top: BELT.top + 0.31,
+  zc: 0.1, // pivot line along Z
+  pivotX: 0.075, // 1/3 and 2/3 of the belt width measured from the nearest side wall
+  halfLen: 0.22,
+  halfT: 0.012,
+  noseLen: 0.05,
+  noseHalfW: 0.022,
+  bottom: BELT.top + 0.004, // 4 mm above the belt
+  top: BELT.top + 0.24,
   sortDeg: 45,
 } as const
 
 /** Side discharge slots (both walls). */
-export const SLOT = { z0: 0.36, z1: 0.9 } as const
+export const SLOT = { z0: 0.06, z1: 0.55 } as const
 
-export const PIECE = { size: 0.06 } as const
+/** Horizontal lift-bridge ("puente levadizo") at the outfeed terminal. */
+export const BRIDGE = {
+  hingeZ: 1.78,
+  hingeY: BELT.top - 0.006,
+  len: 0.28,
+  halfW: 0.2,
+  liftDeg: 65,
+  flangeH: 0.03,
+} as const
 
 export const COLORS = {
   red: '#e0221c',
   green: '#16b04a',
   blue: '#1d55e0',
+  yellow: '#f2b705', // off-colour / defective piece
 } as const
 
 export type PieceColor = keyof typeof COLORS
 export type PieceShape = 'cube' | 'cylinder'
+export type BinId = 'red' | 'green' | 'blue' | 'anomaly'
 
-/** Linear RGB-ish signature used by the IR colour model (0..1). */
+/** Linear RGB-ish signature used by the TCS3200 reflectance model (0..1). */
 export const PIECE_RGB: Record<PieceColor, V3> = {
   red: [0.88, 0.13, 0.11],
   green: [0.09, 0.69, 0.29],
   blue: [0.11, 0.33, 0.88],
+  yellow: [0.92, 0.72, 0.08],
 }
 
 export interface BoxDef {
@@ -67,7 +92,6 @@ export interface BoxDef {
   restitution?: number
 }
 
-// ---------------------------------------------------------------- helpers
 function seg(
   id: string,
   x1: number,
@@ -93,7 +117,7 @@ function seg(
 
 // ---------------------------------------------------------------- bins
 export interface BinDef {
-  id: 'red' | 'green' | 'blue'
+  id: BinId
   cx: number
   cz: number
   hx: number
@@ -101,10 +125,11 @@ export interface BinDef {
   rim: number
 }
 
-export const BINS: Record<'red' | 'green' | 'blue', BinDef> = {
-  red: { id: 'red', cx: -0.66, cz: 0.63, hx: 0.19, hz: 0.3, rim: 0.34 },
-  blue: { id: 'blue', cx: 0.66, cz: 0.63, hx: 0.19, hz: 0.3, rim: 0.34 },
-  green: { id: 'green', cx: 0, cz: 1.66, hx: 0.22, hz: 0.25, rim: 0.34 },
+export const BINS: Record<BinId, BinDef> = {
+  red: { id: 'red', cx: -0.66, cz: 0.305, hx: 0.19, hz: 0.28, rim: 0.34 },
+  blue: { id: 'blue', cx: 0.66, cz: 0.305, hx: 0.19, hz: 0.28, rim: 0.34 },
+  anomaly: { id: 'anomaly', cx: 0, cz: 1.58, hx: 0.2, hz: 0.16, rim: 0.34 },
+  green: { id: 'green', cx: 0, cz: 2.0, hx: 0.22, hz: 0.22, rim: 0.34 },
 }
 
 export function binAt(x: number, y: number, z: number): BinDef | null {
@@ -153,7 +178,6 @@ export function chuteGeom(s: -1 | 1) {
   const dy = y0 - y1
   const len = Math.hypot(dx, dy)
   const ang = Math.atan2(dy, dx) // slope direction measured bottom -> top
-  // upward normal of the surface
   const n: [number, number] = dx > 0 ? [-dy / len, dx / len] : [dy / len, -dx / len]
   return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, len, ang, n }
 }
@@ -185,6 +209,10 @@ function chuteBoxes(s: -1 | 1): BoxDef[] {
 // ---------------------------------------------------------------- static colliders
 const wallY0 = BELT.top
 const wallY1 = BELT.top + GUARD.h
+
+/** Lane rails coincide with the neutral paddle positions (x = ±pivotX) so that the centre corridor is continuous. */
+export const LANE = { x: PADDLE.pivotX, z0: -0.85, z1: PADDLE.zc - 0.25 } as const
+export const LANE2 = { x: 0.09, z0: 0.8, z1: 1.42 } as const
 
 export function fixedBoxes(): BoxDef[] {
   const out: BoxDef[] = []
@@ -221,13 +249,16 @@ export function fixedBoxes(): BoxDef[] {
 
   // Infeed funnel + metering lane
   for (const s of [-1, 1] as const) {
-    out.push(seg(`funnel-${s}`, s * 0.228, -1.15, s * 0.085, -0.85, 0.006, 0.75, 0.85))
-    out.push(seg(`lane-${s}`, s * 0.091, -0.85, s * 0.091, -0.05, 0.006, 0.75, 0.85))
+    out.push(seg(`funnel-${s}`, s * 0.228, -1.15, s * LANE.x, LANE.z0, 0.006, 0.75, 0.85))
+    out.push(seg(`lane-${s}`, s * LANE.x, LANE.z0, s * LANE.x, LANE.z1, 0.006, 0.75, 0.85))
+    // second corridor that feeds the verification hood after the sorting zone
+    out.push(seg(`funnel2-${s}`, s * 0.15, 0.62, s * LANE2.x, LANE2.z0, 0.006, 0.75, 0.85))
+    out.push(seg(`lane2-${s}`, s * LANE2.x, LANE2.z0, s * LANE2.x, LANE2.z1, 0.006, 0.75, 0.85))
   }
 
   // Chutes & bins
   out.push(...chuteBoxes(-1), ...chuteBoxes(1))
-  out.push(...binBoxes(BINS.red), ...binBoxes(BINS.blue), ...binBoxes(BINS.green))
+  for (const b of Object.values(BINS)) out.push(...binBoxes(b))
   return out
 }
 
@@ -243,7 +274,7 @@ export function clampToInfeed(x: number, z: number): [number, number] {
 
 /**
  * Paddle collision shapes in the paddle's local frame (origin = paddle centre at mid height, +Z = downstream tail).
- * A chevron nose (convex hull of a triangular prism, pointing upstream) + a straight stem.
+ * A small chevron nose pointing upstream (convex hull of a triangular prism) + a straight blade.
  */
 export function paddleShapes() {
   const hl = PADDLE.halfLen
@@ -263,4 +294,16 @@ export function paddleShapes() {
     },
     nose: new Float32Array(noseVerts),
   }
+}
+
+/** Lift-bridge ramp colliders in the hinge frame (hinge axis = X through the origin, ramp extends toward -Z). */
+export function bridgeShapes() {
+  const t = 0.006
+  return [
+    { pos: [0, -t, -BRIDGE.len / 2] as V3, half: [BRIDGE.halfW, t, BRIDGE.len / 2] as V3 },
+    ...[-1, 1].map((s) => ({
+      pos: [s * (BRIDGE.halfW - 0.004), BRIDGE.flangeH / 2, -BRIDGE.len / 2] as V3,
+      half: [0.004, BRIDGE.flangeH / 2, BRIDGE.len / 2] as V3,
+    })),
+  ]
 }

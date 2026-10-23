@@ -25,6 +25,11 @@ const pieceMats: Record<PieceColor, THREE.MeshStandardMaterial> = {
     roughness: 0.36,
     metalness: 0.08,
   }),
+  yellow: new THREE.MeshStandardMaterial({
+    color: COLORS.yellow,
+    roughness: 0.34,
+    metalness: 0.1,
+  }),
 }
 
 function WorkpieceItem({ spec }: { spec: PieceSpec }) {
@@ -50,6 +55,7 @@ function WorkpieceItem({ spec }: { spec: PieceSpec }) {
   }, [spec.id, spec.color, spec.shape])
 
   const half = PIECE.size / 2
+  const halfH = PIECE.h / 2
   const mat = useMemo(() => pieceMats[spec.color], [spec.color])
 
   return (
@@ -65,9 +71,9 @@ function WorkpieceItem({ spec }: { spec: PieceSpec }) {
       angularDamping={0.6}
     >
       {spec.shape === 'cube' ? (
-        <CuboidCollider args={[half, half, half]} density={1200} friction={0.1} restitution={0.1} />
+        <CuboidCollider args={[half, halfH, half]} density={1200} friction={0.1} restitution={0.05} />
       ) : (
-        <CylinderCollider args={[half, half]} density={1200} friction={0.1} restitution={0.1} />
+        <CylinderCollider args={[halfH, half]} density={1200} friction={0.1} restitution={0.05} />
       )}
       <mesh
         material={mat}
@@ -80,9 +86,9 @@ function WorkpieceItem({ spec }: { spec: PieceSpec }) {
         }}
       >
         {spec.shape === 'cube' ? (
-          <boxGeometry args={[PIECE.size, PIECE.size, PIECE.size]} />
+          <boxGeometry args={[PIECE.size, PIECE.h, PIECE.size]} />
         ) : (
-          <cylinderGeometry args={[half, half, PIECE.size, 28]} />
+          <cylinderGeometry args={[half, half, PIECE.h, 28]} />
         )}
       </mesh>
     </RigidBody>

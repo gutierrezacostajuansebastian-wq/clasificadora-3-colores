@@ -9,6 +9,7 @@ import {
   COLORS,
   GUARD,
   INFEED,
+  PIECE,
   SLOT,
   chuteGeom,
   clampToInfeed,
@@ -142,7 +143,7 @@ export function GuardsChutesBins() {
   const boxes = useMemo(() => fixedBoxes(), [])
   const placeSpec = useSim((s) => s.placeSpec)
   const spawn = useSim((s) => s.spawn)
-  const counts = useSim((s) => s.counts)
+  const counts = useSim((s) => s.telemetry.counts)
   const [hoverPos, setHoverPos] = useState<[number, number] | null>(null)
 
   const wallY0 = BELT.top
@@ -237,7 +238,7 @@ export function GuardsChutesBins() {
 
       {/* Centering Infeed Funnel + Metering Guide Rails */}
       {boxes
-        .filter((b) => b.id.startsWith('funnel-') || b.id.startsWith('lane-'))
+        .filter((b) => b.id.startsWith('funnel') || b.id.startsWith('lane'))
         .map((b) => (
           <group key={b.id} position={b.pos} rotation={b.rot ?? [0, 0, 0]}>
             <mesh material={mats.acrylic}>
@@ -251,18 +252,23 @@ export function GuardsChutesBins() {
 
       {/* Terminal End Discharge Guide (+Z) */}
       <Label
-        text="TERMINAL DISCHARGE (+Z · GREEN)"
-        position={[0, BELT.top + 0.15, BELT.halfLen - 0.02]}
-        height={0.028}
+        text="LIFT-BRIDGE DISCHARGE (+Z · GREEN / NOVEDADES)"
+        position={[0, BELT.top + 0.2, BELT.halfLen - 0.02]}
+        height={0.026}
       />
 
       {/* Decline Chutes */}
       <ChuteVisual side={-1} colorHex={COLORS.red} label="RED SLOT (-X)" />
       <ChuteVisual side={1} colorHex={COLORS.blue} label="BLUE SLOT (+X)" />
 
-      {/* 3 Collection Bins */}
+      {/* 4 Collection Bins: Red (-X), Blue (+X), Novedades/Anomaly (under bridge void), Green (+Z) */}
       <BinVisual bin={BINS.red} label={`RED BIN (-X) [${counts.red}]`} colorHex={COLORS.red} />
       <BinVisual bin={BINS.blue} label={`BLUE BIN (+X) [${counts.blue}]`} colorHex={COLORS.blue} />
+      <BinVisual
+        bin={BINS.anomaly}
+        label={`NOVEDADES / DEFECT [${counts.anomaly}]`}
+        colorHex={COLORS.yellow}
+      />
       <BinVisual bin={BINS.green} label={`GREEN BIN (+Z) [${counts.green}]`} colorHex={COLORS.green} />
 
       {/* Interactive Infeed Click-to-Place / Drag-and-Drop Zone */}
@@ -284,12 +290,12 @@ export function GuardsChutesBins() {
 
       {/* Ghost preview when Click-to-Place mode is armed */}
       {placeSpec && hoverPos && (
-        <group position={[hoverPos[0], 0.81, hoverPos[1]]}>
+        <group position={[hoverPos[0], BELT.top + PIECE.h / 2 + 0.01, hoverPos[1]]}>
           <mesh>
             {placeSpec.shape === 'cube' ? (
-              <boxGeometry args={[0.06, 0.06, 0.06]} />
+              <boxGeometry args={[PIECE.size, PIECE.h, PIECE.size]} />
             ) : (
-              <cylinderGeometry args={[0.03, 0.03, 0.06, 24]} />
+              <cylinderGeometry args={[PIECE.size / 2, PIECE.size / 2, PIECE.h, 24]} />
             )}
             <meshStandardMaterial
               color={COLORS[placeSpec.color]}

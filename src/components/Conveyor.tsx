@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { BELT } from '../sim/layout'
+import { PINS } from '../sim/pins'
 import { runtime } from '../sim/store'
 import { Extrusion } from './Extrusion'
 import { Label } from './Label'
@@ -74,6 +75,37 @@ export function Conveyor() {
   }, [tex, texRet, len])
 
   const last = useRef(0)
+  const encDisc = useRef<THREE.Mesh>(null)
+  const encLed = useRef<THREE.MeshStandardMaterial>(null)
+  const encAngle = useRef(0)
+  const encGeo = useMemo(() => {
+    const R = 0.03
+    const sh = new THREE.Shape()
+    sh.absarc(0, 0, R, 0, Math.PI * 2, false)
+    const n = 20
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2
+      const hole = new THREE.Path()
+      const w = 0.0035
+      const r0 = 0.019
+      const r1 = 0.027
+      const c = Math.cos(a)
+      const s = Math.sin(a)
+      const pt = (rr: number, ww: number): [number, number] => [c * rr - s * ww, s * rr + c * ww]
+      hole.moveTo(...pt(r0, -w))
+      hole.lineTo(...pt(r1, -w))
+      hole.lineTo(...pt(r1, w))
+      hole.lineTo(...pt(r0, w))
+      hole.closePath()
+      sh.holes.push(hole)
+    }
+    const hub = new THREE.Path()
+    hub.absarc(0, 0, 0.0085, 0, Math.PI * 2, true)
+    sh.holes.push(hub)
+    const g = new THREE.ExtrudeGeometry(sh, { depth: 0.002, bevelEnabled: false, curveSegments: 16 })
+    g.translate(0, 0, -0.001)
+    return g
+  }, [])
   useFrame(() => {
     const off = runtime.engine.belt.offset
     const d = off - last.current
@@ -83,6 +115,12 @@ export function Conveyor() {
     const ang = d / BELT.rollerR
     if (rollerA.current) rollerA.current.rotation.y -= ang
     if (rollerB.current) rollerB.current.rotation.y -= ang
+    encAngle.current += ang
+    if (encDisc.current) encDisc.current.rotation.z = encAngle.current
+    if (encLed.current) {
+      const slotPhase = (encAngle.current / (Math.PI / 20)) % 2
+      encLed.current.emissiveIntensity = slotPhase < 1 ? 6 : 0.1 // receiver pulse
+    }
   })
 
   const zr = BELT.halfLen - BELT.rollerR
@@ -162,9 +200,9 @@ export function Conveyor() {
         <Extrusion key={s} axis="z" length={2.7} size={0.02} position={[s * railX, 0.3, 0]} />
       ))}
 
-      {/* guard support posts (2020) */}
+      {/* guard support posts (2020), kept clear of the discharge slots and the outfeed bridge */}
       {[-1, 1].map((s) =>
-        [-1.4, -1.05, -0.8, -0.2, 0.2, 1.3].map((z) => (
+        [-1.4, -1.05, -0.8, -0.3, 0.62, 1.3].map((z) => (
           <Extrusion
             key={`${s}${z}`}
             axis="y"
@@ -193,6 +231,33 @@ export function Conveyor() {
           <boxGeometry args={[0.07, 0.01, 0.08]} />
         </mesh>
         <Label text="M1 · motor cinta" position={[-0.08, 0.1, 0]} height={0.03} />
+      </group>
+
+      {/* optical speed encoder: slotted disc (20 slots) + interrupter on the drive roller shaft */}
+      <group position={[0.285, yr, -zr]}>
+        <group rotation={[0, Math.PI / 2, 0]}>
+          <mesh ref={encDisc} geometry={encGeo} material={mats.aluDark} castShadow />
+        </group>
+        <mesh position={[0, 0.03, 0]} material={mats.blackPlastic} castShadow>
+          <boxGeometry args={[0.024, 0.016, 0.022]} />
+        </mesh>
+        <mesh position={[-0.0105, 0.02, 0]} material={mats.blackPlastic}>
+          <boxGeometry args={[0.003, 0.016, 0.02]} />
+        </mesh>
+        <mesh position={[0.0105, 0.02, 0]} material={mats.blackPlastic}>
+          <boxGeometry args={[0.003, 0.016, 0.02]} />
+        </mesh>
+        <mesh position={[0, 0.0395, 0.012]}>
+          <sphereGeometry args={[0.0042, 12, 8]} />
+          <meshStandardMaterial
+            ref={encLed}
+            color="#1b1e24"
+            emissive="#f59e0b"
+            emissiveIntensity={0.1}
+            toneMapped={false}
+          />
+        </mesh>
+        <Label text={`TACHO · D${PINS.tach} · 20 slots`} position={[0.07, 0.08, 0]} height={0.026} />
       </group>
     </group>
   )
